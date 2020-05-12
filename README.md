@@ -17,3 +17,11 @@ YMMV.
 (zip-tz.core/zip->tz "95060")
 ; => "America/Los_Angeles"
 ```
+
+<hr>
+
+```
+$ sqlite3 zip-tz.db
+sqlite> select tz from ziptz where begin < '95060' AND end > '95060';
+America/Los_Angeles
+```
