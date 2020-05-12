@@ -41,32 +41,32 @@
 
 (def zip->tz
   (filter some?
-    (mapcat (fn [zip]
-              (print "mapping zip" (.. zip (getProperty "GEOID10") (getValue)) "... ")
-              (.flush *out*)
-              (let [tz (->> xformed-tz-features
-                            ; first see if the zip code polygon intersects the time zone polygon...
-                            (filter #(try (.intersects (second %)
-                                                       (.. zip getDefaultGeometryProperty getValue))
-                                          (catch Exception x
-                                            (println "exception testing intersection:" x))))
-                            ; ... then find the largest intersection, since zip codes near the
-                            ; borders of time zones (or if there are zip codes in multiple time
-                            ; zones at once, for real) will intersect too.
-                            (reduce (fn [cur-max e]
-                                      (let [a1 (when cur-max
-                                                 (.getArea (.intersection (second cur-max)
-                                                                          (.. zip getDefaultGeometryProperty getValue))))
-                                            a2 (.getArea (.intersection (second e)
-                                                                        (.. zip getDefaultGeometryProperty getValue)))]
-                                        (if (or (nil? a1) (< a1 a2))
-                                          e
-                                          cur-max)))
-                                    nil)
-                            (first))]
-                (println (some-> tz (..  (getProperty "tzid") (getValue))))
-                [(.. zip (getProperty "GEOID10") (getValue))
-                 (or (some-> tz (.. (getProperty "tzid") (getValue))) "unknown")]))
+    (map (fn [zip]
+           (print "mapping zip" (.. zip (getProperty "GEOID10") (getValue)) "... ")
+           (.flush *out*)
+           (let [tz (->> xformed-tz-features
+                         ; first see if the zip code polygon intersects the time zone polygon...
+                         (filter #(try (.intersects (second %)
+                                                    (.. zip getDefaultGeometryProperty getValue))
+                                       (catch Exception x
+                                         (println "exception testing intersection:" x))))
+                         ; ... then find the largest intersection, since zip codes near the
+                         ; borders of time zones (or if there are zip codes in multiple time
+                         ; zones at once, for real) will intersect too.
+                         (reduce (fn [cur-max e]
+                                   (let [a1 (when cur-max
+                                              (.getArea (.intersection (second cur-max)
+                                                                       (.. zip getDefaultGeometryProperty getValue))))
+                                         a2 (.getArea (.intersection (second e)
+                                                                     (.. zip getDefaultGeometryProperty getValue)))]
+                                     (if (or (nil? a1) (< a1 a2))
+                                       e
+                                       cur-max)))
+                                 nil)
+                         (first))]
+             (println (some-> tz (..  (getProperty "tzid") (getValue))))
+             [(.. zip (getProperty "GEOID10") (getValue))
+              (or (some-> tz (.. (getProperty "tzid") (getValue))) "unknown")]))
          features)))
 
 ; compress the list, so contiguous zip codes can map to the same time zone
