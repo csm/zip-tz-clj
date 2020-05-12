@@ -1,5 +1,7 @@
 # zip-tz-clj
 
+[![Clojars Project](https://img.shields.io/clojars/v/com.github.csm/zip-tz.svg)](https://clojars.org/com.github.csm/zip-tz)
+
 Hackery to convert US zip code to time zone.
 
 This uses zip code [data from the US Census Bureau](https://www.census.gov/geographies/mapping-files/time-series/geo/carto-boundary-file.html)
