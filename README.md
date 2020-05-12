@@ -8,3 +8,12 @@ and timezone [data from timezone-boundary-builder](https://github.com/evansiroky
 This code may not actually do what I intend it to, but it was just a stab at the problem.
 
 YMMV.
+
+<hr>
+
+```clojure
+(require 'zip-tz.core)
+
+(zip-tz.core/zip->tz "95060")
+; => "America/Los_Angeles"
+```
