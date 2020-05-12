@@ -30,40 +30,48 @@
                                       (-> features first (.. getDescriptor getType getCoordinateReferenceSystem))
                                       true))
 
-(import 'org.geotools.geometry.jts.JTS)
-(def found-tzs (filter #(.intersects (-> %
-                                         (.. getDefaultGeometryProperty getValue)
-                                         (JTS/transform crs-xform))
-                                     (-> features first
-                                         (.. getDefaultGeometryProperty getValue)))
-                       tz-features))
+; I think this is what we need to do, since the two data sets are in different
+; projections: convert the time zone values from their current projection to
+; the projection in the zip code data set.
 
+(import 'org.geotools.geometry.jts.JTS)
 (def xformed-tz-features
   (map (fn [tz] [tz (JTS/transform (.. tz getDefaultGeometryProperty getValue) crs-xform)])
        tz-features))
 
 (def zip->tz
   (filter some?
-    (map (fn [zip]
-           (print "mapping zip" (.. zip (getProperty "GEOID10") (getValue)) "... ")
-           (.flush *out*)
-           (let [tz (try
-                      (ffirst
-                        (filter #(.intersects (second %)
-                                              (.. zip getDefaultGeometryProperty getValue))
-                                xformed-tz-features))
-                      (catch Exception x
-                        (println x)
-                        nil))]
-             (let [zip (.. zip (getProperty "GEOID10") (getValue))
-                   tz (some-> tz (.. (getProperty "tzid") (getValue)))]
-               (println (or tz "unknown"))
-               [(or zip "unknown") (or tz "unknown")])))
+    (mapcat (fn [zip]
+              (print "mapping zip" (.. zip (getProperty "GEOID10") (getValue)) "... ")
+              (.flush *out*)
+              (let [tz (->> xformed-tz-features
+                            ; first see if the zip code polygon intersects the time zone polygon...
+                            (filter #(try (.intersects (second %)
+                                                       (.. zip getDefaultGeometryProperty getValue))
+                                          (catch Exception x
+                                            (println "exception testing intersection:" x))))
+                            ; ... then find the largest intersection, since zip codes near the
+                            ; borders of time zones (or if there are zip codes in multiple time
+                            ; zones at once, for real) will intersect too.
+                            (reduce (fn [cur-max e]
+                                      (let [a1 (when cur-max
+                                                 (.getArea (.intersection (second cur-max)
+                                                                          (.. zip getDefaultGeometryProperty getValue))))
+                                            a2 (.getArea (.intersection (second e)
+                                                                        (.. zip getDefaultGeometryProperty getValue)))]
+                                        (if (or (nil? a1) (< a1 a2))
+                                          e
+                                          cur-max)))
+                                    nil)
+                            (first))]
+                (println (some-> tz (..  (getProperty "tzid") (getValue))))
+                [(.. zip (getProperty "GEOID10") (getValue))
+                 (or (some-> tz (.. (getProperty "tzid") (getValue))) "unknown")]))
          features)))
 
 ; compress the list, so contiguous zip codes can map to the same time zone
 ; this could make up zip codes out of thin air, if there are gaps. But we don't
-; care that much
+; care that much.
 
 (def zip->tz2 (loop [items []
                      prev nil
@@ -76,3 +84,7 @@
                            {:start (first val) :end (first val) :tz (second val)}
                            vals))
                   (cond-> items (some? prev) (conj prev)))))
+
+(with-open [out (io/writer "zip->tz.edn")]
+  (binding [*out* out]
+    (prn zip->tz2)))
